@@ -159,7 +159,11 @@ extern "C" {
         exn->unwind_info.exception_cleanup = cleanup;
         exn->value = value;
         auto ret = _Unwind_RaiseException(&exn->unwind_info);
-        std::cout << "_Unwind_RaiseException failed with " << ret << std::endl;
+        if (ret == _URC_END_OF_STACK) {
+            std::cerr << "uncaught exception with value " << value << std::endl;
+        } else {
+            std::cout << "_Unwind_RaiseException failed with " << ret << std::endl;
+        }
         abort();
     }
 }
