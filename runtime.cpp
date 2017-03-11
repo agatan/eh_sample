@@ -145,8 +145,18 @@ extern "C" {
         return malloc(size);
     }
 
+    void my_free(void* ptr) {
+        free(ptr);
+    }
+
+    static void cleanup(_Unwind_Reason_Code _code, _Unwind_Exception* exception) {
+        my_free(exception);
+    }
+
     void my_throw_exception(int value) {
         auto exn = static_cast<minc::runtime::exception_object*>(my_alloc_exception(sizeof(minc::runtime::exception_object)));
+        exn->unwind_info.exception_class = 0x4d4f519952555354;
+        exn->unwind_info.exception_cleanup = cleanup;
         exn->value = value;
         auto ret = _Unwind_RaiseException(&exn->unwind_info);
         std::cout << "_Unwind_RaiseException failed with " << ret << std::endl;
