@@ -18,20 +18,21 @@ namespace minc {
             unsigned int pad;
         };
 
-        eh_action make_eh_action(const std::uint8_t* lsda, std::uintptr_t ip, std::uintptr_t start) {
+        eh_action make_eh_action(std::uint8_t const* lsda, std::uintptr_t ip, std::uintptr_t start) {
             if (!lsda) {
                 eh_action ret = { eh_action_type::none, 0 };
                 return ret;
             }
-            std::uint8_t start_encoding = *lsda++;
+            auto reader = dwarf::reader{lsda};
+            std::uint8_t start_encoding = reader.read_u8();
             std::uintptr_t lpad_base;
             if (start_encoding != dwarf::DW_EH_PE_omit) {
                 assert(0 && "not supported");
             } else {
                 lpad_base = start;
             }
-            std::uint8_t ttype_encoding = *lsda++;
-            if (ttype_encoding != dwarf::DW_EH_PE_omit) {
+            std::uint8_t ttype_encoding = reader.read_u8();
+            if (ttype_encoding == dwarf::DW_EH_PE_omit) {
                 assert(0 && "not supported");
             } else {
             }
@@ -63,6 +64,17 @@ namespace minc {
             }
             return _URC_FATAL_PHASE2_ERROR;
         }
+    }
+}
+
+extern "C" {
+    _Unwind_Reason_Code my_personality(
+            int version,
+            _Unwind_Action actions,
+            std::uint64_t exception_class,
+            struct _Unwind_Exception* exception_object,
+            struct _Unwind_Context* context) {
+        return minc::runtime::my_personality(version, actions, exception_class, exception_object, context);
     }
 }
 
