@@ -146,9 +146,9 @@ extern "C" {
     }
 
     void my_throw_exception(int value) {
-        minc::runtime::exception_object exn;
-        exn.value = value;
-        auto ret = _Unwind_RaiseException(&exn.unwind_info);
+        auto exn = static_cast<minc::runtime::exception_object*>(my_alloc_exception(sizeof(minc::runtime::exception_object)));
+        exn->value = value;
+        auto ret = _Unwind_RaiseException(&exn->unwind_info);
         std::cout << "_Unwind_RaiseException failed with " << ret << std::endl;
         abort();
     }
