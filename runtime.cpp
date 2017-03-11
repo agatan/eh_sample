@@ -19,7 +19,21 @@ namespace minc {
             unsigned int pad;
         };
 
-        eh_action make_eh_action(std::uint8_t const* lsda, std::uintptr_t ip, std::uintptr_t start) {
+        static unsigned int read_encoded_pointer(dwarf::reader& reader, std::uint8_t encoding) {
+            assert(encoding != dwarf::DW_EH_PE_omit);
+            unsigned int result;
+            switch (encoding & 0x0f) {
+            case dwarf::DW_EH_PE_udata4:
+                result = *reinterpret_cast<std::uint32_t const*>(reader.ptr);
+                reader.ptr += 4;
+                break;
+            default:
+                assert(false && "unreachable unknown encoding");
+            }
+            return result;
+        }
+
+        static eh_action make_eh_action(std::uint8_t const* lsda, std::uintptr_t ip, std::uintptr_t start) {
             if (!lsda) {
                 eh_action ret = { eh_action_type::none, 0 };
                 return ret;
@@ -33,14 +47,36 @@ namespace minc {
                 lpad_base = start;
             }
             std::uint8_t ttype_encoding = reader.read_u8();
-            if (ttype_encoding == dwarf::DW_EH_PE_omit) {
-                assert(0 && "not supported");
-            } else {
+            if (ttype_encoding != dwarf::DW_EH_PE_omit) {
+                reader.read_uleb128();
             }
-            return {};
+
+            std::uint8_t call_site_encoding = reader.read_u8();
+            auto call_site_table_length = reader.read_uleb128();
+            auto action_table = reader.ptr + static_cast<int>(call_site_table_length);
+            while (reader.ptr < action_table) {
+                auto cs_start = read_encoded_pointer(reader, call_site_encoding);
+                auto cs_len = read_encoded_pointer(reader, call_site_encoding);
+                auto cs_lpad = read_encoded_pointer(reader, call_site_encoding);
+                auto cs_action = reader.read_uleb128();
+                if (ip < start + cs_start) {
+                    break;
+                }
+                if (ip < start + cs_start < cs_len) {
+                    if (cs_lpad == 0) {
+                        return { eh_action_type::none, 0 };
+                    }
+                    auto lpad = static_cast<unsigned int>(lpad_base + cs_lpad);
+                    if (cs_action == 0) {
+                        return { eh_action_type::cleanup, lpad };
+                    }
+                    return { eh_action_type::catch_, lpad };
+                }
+            }
+            return { eh_action_type::none, 0 };
         }
 
-        eh_action find_eh_action(struct _Unwind_Context* context) {
+        static eh_action find_eh_action(struct _Unwind_Context* context) {
             const std::uint8_t* lsda = (const std::uint8_t*) _Unwind_GetLanguageSpecificData(context);
             int ip_before_instr = 0;
             std::uintptr_t ip = _Unwind_GetIPInfo(context, &ip_before_instr);
