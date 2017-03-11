@@ -20,4 +20,4 @@ $(LIB): $(OBJS)
 	clang++ -std=c++14 -c $<
 
 clean:
-	rm $(OBJS)
+	rm $(OBJS) $(LIB) $(BIN) *.s
