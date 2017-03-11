@@ -4,6 +4,10 @@ namespace minc {
     namespace runtime {
         namespace dwarf {
 
+            uint8_t reader::read_u8() {
+                return *ptr++;
+            }
+
             uint64_t reader::read_uleb128() {
                 unsigned int shift = 0;
                 uint64_t result = 0;

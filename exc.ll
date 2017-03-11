@@ -10,7 +10,12 @@ entry:
 define i32 @main() {
 entry:
     call i32 @f()
-    ret i32 0
+    %m = call i8* @my_alloc_exception(i64 4);
+    store i8 3, i8* %m
+    %r = load i8, i8* %m
+    %sr = sext i8 %r to i32
+    ret i32 %sr
 }
 
 declare i32 @puts(i8*)
+declare i8* @my_alloc_exception(i64);

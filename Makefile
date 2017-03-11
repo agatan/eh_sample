@@ -6,6 +6,9 @@ BIN := exc
 
 all: $(BIN)
 
+run: $(BIN)
+	./$(BIN)
+
 $(BIN): $(LIB) exc.ll
 	llc exc.ll
 	clang -L. exc.s -lmincrt -o $(BIN)

@@ -76,6 +76,10 @@ extern "C" {
             struct _Unwind_Context* context) {
         return minc::runtime::my_personality(version, actions, exception_class, exception_object, context);
     }
+
+    void* my_alloc_exception(size_t size) {
+        return malloc(size);
+    }
 }
 
 // # :nodoc:
