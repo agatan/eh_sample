@@ -11,7 +11,7 @@ run: $(BIN)
 
 $(BIN): $(LIB) exc.ll
 	llc exc.ll
-	clang -L. exc.s -lmincrt -o $(BIN)
+	clang++ -L. exc.s -lmincrt -o $(BIN)
 
 $(LIB): $(OBJS)
 	ar rcs libmincrt.a $(OBJS)

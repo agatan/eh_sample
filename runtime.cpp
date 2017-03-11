@@ -1,6 +1,7 @@
 #include <unwind.h>
 #include <cstdint>
 #include <cassert>
+#include <iostream>
 #include "dwarf.hpp"
 
 namespace minc {
@@ -64,6 +65,11 @@ namespace minc {
             }
             return _URC_FATAL_PHASE2_ERROR;
         }
+
+        struct exception_object {
+            _Unwind_Exception unwind_info;
+            int value;
+        };
     }
 }
 
@@ -79,6 +85,14 @@ extern "C" {
 
     void* my_alloc_exception(size_t size) {
         return malloc(size);
+    }
+
+    void my_throw_exception(int value) {
+        minc::runtime::exception_object exn;
+        exn.value = value;
+        auto ret = _Unwind_RaiseException(&exn.unwind_info);
+        std::cout << "_Unwind_RaiseException failed with " << ret << std::endl;
+        abort();
     }
 }
 
