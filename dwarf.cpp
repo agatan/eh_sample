@@ -4,7 +4,7 @@ namespace minc {
     namespace runtime {
         namespace dwarf {
 
-            uint64_t read_uleb128(const uint8_t* ptr) {
+            uint64_t reader::read_uleb128() {
                 unsigned int shift = 0;
                 uint64_t result = 0;
                 uint8_t byte = 0;
@@ -16,7 +16,7 @@ namespace minc {
                 return result;
             }
 
-            int64_t read_sleb128(const uint8_t* ptr) {
+            int64_t reader::read_sleb128() {
                 unsigned int shift = 0;
                 uint64_t result = 0;
                 uint8_t byte = 0;

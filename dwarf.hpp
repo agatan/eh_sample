@@ -28,8 +28,13 @@ namespace minc {
 
             constexpr std::uint8_t const  DW_EH_PE_indirect   = 0x80;
 
-            uint64_t read_uleb128(const uint8_t* ptr);
-            int64_t read_sleb128(const uint8_t* ptr);
+            struct reader {
+                std::uint8_t* ptr;
+
+                uint8_t read_u8();
+                uint64_t read_uleb128();
+                int64_t read_sleb128();
+            };
         }
     }
 }
