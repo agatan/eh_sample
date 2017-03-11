@@ -96,8 +96,30 @@ namespace minc {
             if (version != 1) {
                 return _URC_FATAL_PHASE1_ERROR;
             }
+            auto eh_act = find_eh_action(context);
             if (actions & _UA_SEARCH_PHASE) {
+                switch (eh_act.type) {
+                case eh_action_type::none:
+                case eh_action_type::cleanup:
+                    return _URC_CONTINUE_UNWIND;
+                case eh_action_type::catch_:
+                    return _URC_HANDLER_FOUND;
+                case eh_action_type::terminate:
+                    return _URC_FATAL_PHASE1_ERROR;
+                }
             } else {
+                switch (eh_act.type) {
+                case eh_action_type::none:
+                    return _URC_CONTINUE_UNWIND;
+                case eh_action_type::cleanup:
+                case eh_action_type::catch_:
+                    _Unwind_SetGR(context, 0, reinterpret_cast<uintptr_t>(exception_object));
+                    _Unwind_SetGR(context, 1, 0);
+                    _Unwind_SetIP(context, eh_act.pad);
+                    return _URC_INSTALL_CONTEXT;
+                case eh_action_type::terminate:
+                    return _URC_FATAL_PHASE2_ERROR;
+                }
             }
             return _URC_FATAL_PHASE2_ERROR;
         }

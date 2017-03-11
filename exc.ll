@@ -1,12 +1,13 @@
 @.str = private unnamed_addr constant [12 x i8] c"function f!\00", align 1
 
-define i32 @f() {
+define i32 @f() personality i8* bitcast (i32 (...)* @my_personality to i8*) {
 entry:
     call i32 @puts(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @.str, i32 0, i32 0))
     invoke void @my_throw_exception(i64 8) noreturn
         to label %merge unwind label %exn
 exn:
-    %ret = landingpad { i8*, i32 } cleanup
+    %ret = landingpad { i8*, i32 }
+            cleanup
     br label %merge
 merge:
     ret i32 0
@@ -25,3 +26,4 @@ entry:
 declare i32 @puts(i8*)
 declare i8* @my_alloc_exception(i64);
 declare void @my_throw_exception(i64);
+declare i32 @my_personality(...)
