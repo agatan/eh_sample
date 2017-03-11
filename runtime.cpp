@@ -161,11 +161,18 @@ extern "C" {
         auto ret = _Unwind_RaiseException(&exn->unwind_info);
         if (ret == _URC_END_OF_STACK) {
             std::cerr << "uncaught exception with value " << value << std::endl;
+        } else if (ret == _URC_FATAL_PHASE1_ERROR) {
+            std::cerr << "fatal error in phase 1 with value " << value << std::endl;
+        } else if (ret == _URC_FATAL_PHASE2_ERROR) {
+            std::cerr << "fatal error in phase 2 with value " << value << std::endl;
         } else {
             std::cout << "_Unwind_RaiseException failed with " << ret << std::endl;
         }
         abort();
     }
+
+    uint64_t test_type_0 = 0;
+    uint64_t test_type_1 = 1;
 }
 
 // # :nodoc:
