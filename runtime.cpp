@@ -34,7 +34,9 @@ namespace minc {
         }
 
         static eh_action make_eh_action(std::uint8_t const* lsda, std::uintptr_t ip, std::uintptr_t start) {
+            std::cerr << "start to make eh action\n";
             if (!lsda) {
+                std::cerr << "lsda is null" << std::endl;
                 eh_action ret = { eh_action_type::none, 0 };
                 return ret;
             }
@@ -49,6 +51,8 @@ namespace minc {
             std::uint8_t ttype_encoding = reader.read_u8();
             if (ttype_encoding != dwarf::DW_EH_PE_omit) {
                 reader.read_uleb128();
+            }else{
+                assert(false && "not supported omit ttype");
             }
 
             std::uint8_t call_site_encoding = reader.read_u8();
@@ -64,15 +68,18 @@ namespace minc {
                 }
                 if (ip < start + cs_start < cs_len) {
                     if (cs_lpad == 0) {
+                        std::cerr << "cs_lpad = " << cs_lpad << "\n";
                         return { eh_action_type::none, 0 };
                     }
                     auto lpad = static_cast<unsigned int>(lpad_base + cs_lpad);
                     if (cs_action == 0) {
+                        std::cerr << "cs_action = " << cs_action << "\n";
                         return { eh_action_type::cleanup, lpad };
                     }
                     return { eh_action_type::catch_, lpad };
                 }
             }
+            std::cerr << "break\n";
             return { eh_action_type::none, 0 };
         }
 
@@ -96,7 +103,9 @@ namespace minc {
             if (version != 1) {
                 return _URC_FATAL_PHASE1_ERROR;
             }
+            std::cerr << "personality called" << std::endl;
             auto eh_act = find_eh_action(context);
+            std::cerr << static_cast<int>(eh_act.type) << " : " << eh_act.pad << '\n';
             if (actions & _UA_SEARCH_PHASE) {
                 switch (eh_act.type) {
                 case eh_action_type::none:
