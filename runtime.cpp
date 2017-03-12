@@ -6,6 +6,11 @@
 
 namespace minc {
     namespace runtime {
+        struct exception_object {
+            _Unwind_Exception unwind_info;
+            int value;
+        };
+
         _Unwind_Reason_Code my_personality(
                 int version,
                 _Unwind_Action actions,
@@ -44,7 +49,8 @@ namespace minc {
 
                         if (actions & _UA_HANDLER_FRAME) {
                             _Unwind_SetGR(context, 0, reinterpret_cast<uintptr_t>(exception_object));
-                            _Unwind_SetGR(context, 1, 0);
+                            auto exn = reinterpret_cast<struct exception_object const*>(exception_object);
+                            _Unwind_SetGR(context, 1, exn->value);
                             _Unwind_SetIP(context, start + cs_addr);
                             std::cerr << "install\n";
                             return _URC_INSTALL_CONTEXT;
@@ -54,11 +60,6 @@ namespace minc {
             }
             return _URC_CONTINUE_UNWIND;
         }
-
-        struct exception_object {
-            _Unwind_Exception unwind_info;
-            int value;
-        };
     }
 }
 
@@ -102,52 +103,10 @@ extern "C" {
         abort();
     }
 
-    uint64_t test_type_0 = 0;
-    uint64_t test_type_1 = 1;
+    int select_exception_index() {
+        int res;
+        std::cin >> res;
+        return res;
+    }
 }
 
-// # :nodoc:
-// fun __crystal_personality(version : Int32, actions : LibUnwind::Action, exception_class : std::uint64, exception_object : LibUnwind::Exception*, context : Void*) : LibUnwind::ReasonCode
-//   start = LibUnwind.get_region_start(context)
-//   ip = LibUnwind.get_ip(context)
-//   throw_offset = ip - 1 - start
-//   lsd = LibUnwind.get_language_specific_data(context)
-//   #puts "Personality - actions : #{actions}, start: #{start}, ip: #{ip}, throw_offset: #{throw_offset}"
-//
-//   leb = LEBReader.new(lsd)
-//   leb.read_std::uint8               # @LPStart encoding
-//   if leb.read_std::uint8 != 0xff_u8 # @TType encoding
-//     leb.read_uleb128           # @TType base offset
-//   end
-//   leb.read_std::uint8                     # CS Encoding
-//   cs_table_length = leb.read_uleb128 # CS table length
-//   cs_table_end = leb.data + cs_table_length
-//
-//   while leb.data < cs_table_end
-//     cs_offset = leb.read_std::uint32
-//     cs_length = leb.read_std::uint32
-//     cs_addr = leb.read_std::uint32
-//     action = leb.read_uleb128
-//     #puts "cs_offset: #{cs_offset}, cs_length: #{cs_length}, cs_addr: #{cs_addr}, action: #{action}"
-//
-//     if cs_addr != 0
-//       if cs_offset <= throw_offset && throw_offset <= cs_offset + cs_length
-//         if actions.includes? LibUnwind::Action::SEARCH_PHASE
-//           #puts "found"
-//           return LibUnwind::ReasonCode::HANDLER_FOUND
-//         end
-//
-//         if actions.includes? LibUnwind::Action::HANDLER_FRAME
-//           LibUnwind.set_gr(context, LibUnwind::EH_REGISTER_0, exception_object.address)
-//           LibUnwind.set_gr(context, LibUnwind::EH_REGISTER_1, exception_object.value.exception_type_id)
-//           LibUnwind.set_ip(context, start + cs_addr)
-//           #puts "install"
-//           return LibUnwind::ReasonCode::INSTALL_CONTEXT
-//         end
-//       end
-//     end
-//   end
-//
-//   #puts "continue"
-//   return LibUnwind::ReasonCode::CONTINUE_UNWIND
-// end

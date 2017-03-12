@@ -7,28 +7,21 @@
 
 define i32 @f() personality i8* bitcast (i32 (...)* @my_personality to i8*) {
 entry:
-    %tmp_e_obj = alloca i8*
-    %tmp_e_sel = alloca i32
-
     call i32 @puts(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @.str, i32 0, i32 0))
-    invoke void @my_throw_exception(i64 0) noreturn
+    %selected_e_id = call i64 @select_exception_index()
+    invoke void @my_throw_exception(i64 %selected_e_id) noreturn
         to label %merge unwind label %exn
 exn:
     %ret = landingpad { i8*, i32 }
-            catch i8* bitcast (i8** @test_type_0 to i8*)
-            catch i8* bitcast (i8** @test_type_1 to i8*)
+        cleanup
     call i32 @puts(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @.str2, i32 0, i32 0))
 
-    %tmp0 = extractvalue { i8*, i32 } %ret, 0
-    store i8* %tmp0, i8** %tmp_e_obj
-    %tmp1 = extractvalue { i8*, i32 } %ret, 1
-    store i32 %tmp1, i32* %tmp_e_sel
+    %e_object = extractvalue { i8*, i32 } %ret, 0
+    %e_typeid = extractvalue { i8*, i32 } %ret, 1
 
     br label %catch_0
 catch_0:
-    %selected_0 = load i32, i32* %tmp_e_sel
-    %target_sel_0 = call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @test_type_0 to i8*)) nounwind
-    %is_matched_0 = icmp eq i32 %selected_0, %target_sel_0
+    %is_matched_0 = icmp eq i32 0, %e_typeid
 
     br i1 %is_matched_0, label %matched_to_t0, label %not_matched_to_t0
 
@@ -56,6 +49,7 @@ entry:
 
 declare i32 @puts(i8*)
 declare i8* @my_alloc_exception(i64);
+declare i64 @select_exception_index();
 declare void @my_throw_exception(i64);
 declare i32 @my_personality(...)
 declare i32 @llvm.eh.typeid.for(i8*) #1
