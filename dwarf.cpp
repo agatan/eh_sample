@@ -8,6 +8,12 @@ namespace minc {
                 return *ptr++;
             }
 
+            uint32_t reader::read_u32() {
+                auto result = *reinterpret_cast<uint32_t const*>(ptr);
+                ptr += 4;
+                return result;
+            }
+
             uint64_t reader::read_uleb128() {
                 unsigned int shift = 0;
                 uint64_t result = 0;

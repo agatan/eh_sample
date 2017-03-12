@@ -32,6 +32,7 @@ namespace minc {
                 std::uint8_t const* ptr;
 
                 uint8_t read_u8();
+                uint32_t read_u32();
                 uint64_t read_uleb128();
                 int64_t read_sleb128();
             };

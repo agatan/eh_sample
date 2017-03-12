@@ -3,6 +3,7 @@
 @.str = private unnamed_addr constant [12 x i8] c"function f!\00", align 1
 @.str2 = private unnamed_addr constant [12 x i8] c"landing pad\00", align 1
 @.str3 = private unnamed_addr constant [12 x i8] c"matched t0 \00", align 1
+@.str4 = private unnamed_addr constant [12 x i8] c"not matched\00", align 1
 
 define i32 @f() personality i8* bitcast (i32 (...)* @my_personality to i8*) {
 entry:
@@ -36,6 +37,7 @@ matched_to_t0:
     br label %merge
 
 not_matched_to_t0:
+    call i32 @puts(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @.str4, i32 0, i32 0))
     br label %merge
 
 merge:

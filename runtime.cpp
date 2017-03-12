@@ -6,131 +6,53 @@
 
 namespace minc {
     namespace runtime {
-
-        enum class eh_action_type {
-            none,
-            cleanup,
-            catch_,
-            terminate
-        };
-
-        struct eh_action {
-            eh_action_type type;
-            unsigned int pad;
-        };
-
-        static unsigned int read_encoded_pointer(dwarf::reader& reader, std::uint8_t encoding) {
-            assert(encoding != dwarf::DW_EH_PE_omit);
-            unsigned int result;
-            switch (encoding & 0x0f) {
-            case dwarf::DW_EH_PE_udata4:
-                result = *reinterpret_cast<std::uint32_t const*>(reader.ptr);
-                reader.ptr += 4;
-                break;
-            default:
-                assert(false && "unreachable unknown encoding");
-            }
-            return result;
-        }
-
-        static eh_action make_eh_action(std::uint8_t const* lsda, std::uintptr_t ip, std::uintptr_t start) {
-            std::cerr << "start to make eh action\n";
-            if (!lsda) {
-                std::cerr << "lsda is null" << std::endl;
-                eh_action ret = { eh_action_type::none, 0 };
-                return ret;
-            }
-            auto reader = dwarf::reader{lsda};
-            std::uint8_t start_encoding = reader.read_u8();
-            std::uintptr_t lpad_base;
-            if (start_encoding != dwarf::DW_EH_PE_omit) {
-                assert(0 && "not supported");
-            } else {
-                lpad_base = start;
-            }
-            std::uint8_t ttype_encoding = reader.read_u8();
-            if (ttype_encoding != dwarf::DW_EH_PE_omit) {
-                reader.read_uleb128();
-            }else{
-                assert(false && "not supported omit ttype");
-            }
-
-            std::uint8_t call_site_encoding = reader.read_u8();
-            auto call_site_table_length = reader.read_uleb128();
-            auto action_table = reader.ptr + static_cast<int>(call_site_table_length);
-            while (reader.ptr < action_table) {
-                auto cs_start = read_encoded_pointer(reader, call_site_encoding);
-                auto cs_len = read_encoded_pointer(reader, call_site_encoding);
-                auto cs_lpad = read_encoded_pointer(reader, call_site_encoding);
-                auto cs_action = reader.read_uleb128();
-                if (ip < start + cs_start) {
-                    break;
-                }
-                if (ip < start + cs_start < cs_len) {
-                    if (cs_lpad == 0) {
-                        std::cerr << "cs_lpad = " << cs_lpad << "\n";
-                        return { eh_action_type::none, 0 };
-                    }
-                    auto lpad = static_cast<unsigned int>(lpad_base + cs_lpad);
-                    if (cs_action == 0) {
-                        std::cerr << "cs_action = " << cs_action << "\n";
-                        return { eh_action_type::cleanup, lpad };
-                    }
-                    return { eh_action_type::catch_, lpad };
-                }
-            }
-            std::cerr << "break\n";
-            return { eh_action_type::none, 0 };
-        }
-
-        static eh_action find_eh_action(struct _Unwind_Context* context) {
-            const std::uint8_t* lsda = (const std::uint8_t*) _Unwind_GetLanguageSpecificData(context);
-            int ip_before_instr = 0;
-            std::uintptr_t ip = _Unwind_GetIPInfo(context, &ip_before_instr);
-            if (ip_before_instr == 0) {
-                ip--;
-            }
-            std::uintptr_t start = _Unwind_GetRegionStart(context);
-            return make_eh_action(lsda, ip, start);
-        }
-
         _Unwind_Reason_Code my_personality(
                 int version,
                 _Unwind_Action actions,
                 std::uint64_t exception_class,
                 struct _Unwind_Exception* exception_object,
                 struct _Unwind_Context* context) {
+            std::cerr << "personality called" << std::endl;
             if (version != 1) {
                 return _URC_FATAL_PHASE1_ERROR;
             }
-            std::cerr << "personality called" << std::endl;
-            auto eh_act = find_eh_action(context);
-            std::cerr << static_cast<int>(eh_act.type) << " : " << eh_act.pad << '\n';
-            if (actions & _UA_SEARCH_PHASE) {
-                switch (eh_act.type) {
-                case eh_action_type::none:
-                case eh_action_type::cleanup:
-                    return _URC_CONTINUE_UNWIND;
-                case eh_action_type::catch_:
-                    return _URC_HANDLER_FOUND;
-                case eh_action_type::terminate:
-                    return _URC_FATAL_PHASE1_ERROR;
-                }
-            } else {
-                switch (eh_act.type) {
-                case eh_action_type::none:
-                    return _URC_CONTINUE_UNWIND;
-                case eh_action_type::cleanup:
-                case eh_action_type::catch_:
-                    _Unwind_SetGR(context, 0, reinterpret_cast<uintptr_t>(exception_object));
-                    _Unwind_SetGR(context, 1, 0);
-                    _Unwind_SetIP(context, eh_act.pad);
-                    return _URC_INSTALL_CONTEXT;
-                case eh_action_type::terminate:
-                    return _URC_FATAL_PHASE2_ERROR;
+            auto start = _Unwind_GetRegionStart(context);
+            auto ip = _Unwind_GetIP(context);
+            auto throw_offset = ip - 1 - start;
+            const std::uint8_t* lsd = (const std::uint8_t*) _Unwind_GetLanguageSpecificData(context);
+            auto leb = dwarf::reader{lsd};
+            leb.read_u8();
+            if (leb.read_u8() != 0xff) {
+                leb.read_uleb128();
+            }
+            leb.read_u8();
+            auto cs_table_length = leb.read_uleb128();
+            auto cs_table_end = leb.ptr + cs_table_length;
+
+            while (leb.ptr < cs_table_end) {
+                auto cs_offset = leb.read_u32();
+                auto cs_length = leb.read_u32();
+                auto cs_addr = leb.read_u32();
+                auto action = leb.read_uleb128();
+
+                if (cs_addr != 0) {
+                    if (cs_offset <= throw_offset && throw_offset <= cs_offset + cs_length) {
+                        if (actions & _UA_SEARCH_PHASE) {
+                            std::cerr << "found!\n";
+                            return _URC_HANDLER_FOUND;
+                        }
+
+                        if (actions & _UA_HANDLER_FRAME) {
+                            _Unwind_SetGR(context, 0, reinterpret_cast<uintptr_t>(exception_object));
+                            _Unwind_SetGR(context, 1, 0);
+                            _Unwind_SetIP(context, start + cs_addr);
+                            std::cerr << "install\n";
+                            return _URC_INSTALL_CONTEXT;
+                        }
+                    }
                 }
             }
-            return _URC_FATAL_PHASE2_ERROR;
+            return _URC_CONTINUE_UNWIND;
         }
 
         struct exception_object {
