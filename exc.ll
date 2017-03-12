@@ -4,6 +4,7 @@
 @.str2 = private unnamed_addr constant [12 x i8] c"landing pad\00", align 1
 @.str3 = private unnamed_addr constant [12 x i8] c"matched t0 \00", align 1
 @.str4 = private unnamed_addr constant [12 x i8] c"not matched\00", align 1
+@.str5 = private unnamed_addr constant [12 x i8] c"uncaught ex\00", align 1
 
 define i32 @f() personality i8* bitcast (i32 (...)* @my_personality to i8*) {
 entry:
@@ -31,20 +32,26 @@ matched_to_t0:
 
 not_matched_to_t0:
     call i32 @puts(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @.str4, i32 0, i32 0))
+    ; rethrow exception
+    call void @my_throw_exception(i64 %selected_e_id)
     br label %merge
 
 merge:
     ret i32 0
 }
 
-define i32 @main() {
+define i32 @main() personality i8* bitcast (i32 (...)* @my_personality to i8*) {
 entry:
-    call i32 @f()
-    %m = call i8* @my_alloc_exception(i64 4);
-    store i8 3, i8* %m
-    %r = load i8, i8* %m
-    %sr = sext i8 %r to i32
-    ret i32 %sr
+    %fret = invoke i32 @f()
+        to label %invoke_out unwind label %rescue
+invoke_out:
+    ret i32 %fret
+rescue:
+    %ret = landingpad { i8*, i32 }
+        cleanup
+    call i32 @puts(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @.str5, i32 0, i32 0))
+    %e_typeid = extractvalue { i8*, i32 } %ret, 1
+    ret i32 %e_typeid
 }
 
 declare i32 @puts(i8*)
